@@ -192,7 +192,9 @@ const createImageName = ({ extension, height, outputImageName, width })=>{
         height: extractHeightFromImage(originalImageMeta),
         width: originalImageMeta.width
     };
-    const results = await Promise.all(imageSizes.map(async (imageResizeConfig)=>{
+    const results = []
+
+    for (let imageResizeConfig of imageSizes) {
         imageResizeConfig = sanitizeResizeConfig(imageResizeConfig);
         const resizeAction = getImageResizeAction({
             dimensions,
@@ -320,29 +322,29 @@ const createImageName = ({ extension, height, outputImageName, width })=>{
             width: bufferInfo.width
         });
         const imagePath = `${staticPath}/${imageNameWithDimensions}`;
-        if (await fileExists(imagePath)) {
-            try {
-                await fs.unlink(imagePath);
-            } catch  {
-            // Ignore unlink errors
+        void fileExists(imagePath).then((value) => {
+            if (value) {
+                void fs.promises.unlink(imagePath)
             }
-        }
+        })
         const { height, size, width } = bufferInfo;
-        return createResult({
-            name: imageResizeConfig.name,
-            filename: imageNameWithDimensions,
-            filesize: size,
-            height: fileIsAnimatedType && originalImageMeta.pages ? height / originalImageMeta.pages : height,
-            mimeType: mimeInfo?.mime || mimeType,
-            sizesToSave: [
-                {
-                    buffer: bufferData,
-                    path: imagePath
-                }
-            ],
-            width
-        });
-    }));
+        results.push(
+            createResult({
+                name: imageResizeConfig.name,
+                filename: imageNameWithDimensions,
+                filesize: size,
+                height: fileIsAnimatedType && originalImageMeta.pages ? height / originalImageMeta.pages : height,
+                mimeType: mimeInfo?.mime || mimeType,
+                sizesToSave: [
+                    {
+                        buffer: bufferData,
+                        path: imagePath
+                    }
+                ],
+                width
+            })
+        )
+    };
     return results.reduce((acc, result)=>{
         Object.assign(acc.sizeData, result.sizeData);
         acc.sizesToSave.push(...result.sizesToSave);
